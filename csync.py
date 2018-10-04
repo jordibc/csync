@@ -32,7 +32,7 @@ def main():
     local, server = history_local[-1], history_server[-1]
 
     if local == server:
-        pass  # do nothing
+        print('Same version everywhere, not updating anything.')
     elif server in history_local:
         upload(fname)
     elif local in history_server:
@@ -40,12 +40,16 @@ def main():
     else:
         download_with_different_name(fname)
 
+    delete_temp_files(fname)
+
 
 def assert_tracking(fname):
+    print('Checking that %s is correctly being tracked...' % fname)
     try:
         for f in [fname, fname + '.history']:
             assert os.path.exists(f), "File doesn't exist: %s" % f
-        run('ssh %s ls sync/%s.gpg sync/%s.history' % (SERVER, fname, fname))
+        run('ssh %s ls sync/%s.gpg sync/%s.history > /dev/null' %
+            (SERVER, fname, fname))
     except AssertionError as e:
         sys.exit(e)
     # We could also check the consistency of the remote history by
@@ -58,7 +62,8 @@ def update_history(fname):
     csum = checksum(fname)
     history = get_history(fname)
     if not history or csum != history[-1]:
-        new_entry = '%s\t%s\n' % (csum, time.asctime())
+        print('Updating %s.history ...' % fname)
+        new_entry = '%s  %s\n' % (csum, time.asctime())
         open(fname + '.history', 'at').write(new_entry)
 
 
@@ -71,23 +76,26 @@ def get_history(fname):
 
 
 def get_history_server(fname):
+    print('Getting remote history file (%s.history) ...' % fname)
     path_remote = '%s:sync/%s' % (SERVER, fname)
     path_tmp = 'tmp_%s_%s' % (SERVER, fname)
-    run('scp %s.history %s.history' % (path_remote, path_tmp))
+    run('scp -q %s.history %s.history' % (path_remote, path_tmp))
     return get_history(path_tmp)
 
 
 def download(fname):
+    print('Downloading %s ...' % fname)
     backup(fname)
     path = '%s:sync/%s' % (SERVER, fname)
-    run('scp %s.gpg %s.history .' % (path, path))
+    run('scp -q %s.gpg %s.history .' % (path, path))
     decrypt(fname)
 
 
 def download_with_different_name(fname):
     name_new = 'tmp_%s_%s' % (SERVER, fname)
-    run('scp %s:sync/%s.gpg %s.gpg' % (SERVER, fname, name_new))
-    run('scp %s:sync/%s.history %s.history' % (SERVER, fname, name_new))
+    print('Downloading %s with name %s ...' % (fname, name_new))
+    run('scp -q %s:sync/%s.gpg %s.gpg' % (SERVER, fname, name_new))
+    run('scp -q %s:sync/%s.history %s.history' % (SERVER, fname, name_new))
     decrypt(name_new)
     print('Check the differences in files %s %s' % (name_new, fname))
 
@@ -98,16 +106,23 @@ def backup(fname):
 
 
 def upload(fname):
+    print('Uploading %s ...' % fname)
     encrypt(fname)
-    run('scp %s.gpg %s.history %s:sync' % (fname, fname, SERVER))
+    run('scp -q %s.gpg %s.history %s:sync' % (fname, fname, SERVER))
 
 
 def encrypt(fname):
-    run('gpg -o %s.gpg -c %s' % (fname, fname))
+    run('gpg -o - -c %s > %s.gpg' % (fname, fname))
 
 
 def decrypt(fname):
-    run('gpg -o %s -d %s.gpg' % (fname, fname))
+    run('gpg -o - -d %s.gpg > %s' % (fname, fname))
+
+
+def delete_temp_files(fname):
+    for tmp in ['tmp_%s_%s.history' % (SERVER, fname), '%s.gpg' % fname]:
+        if os.path.exists(tmp):
+            run('rm %s' % tmp)
 
 
 def run(cmd):
