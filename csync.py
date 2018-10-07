@@ -5,15 +5,15 @@ Syncs a file that may exist in different machines, with a server
 that only contains an encrypted version of the file.
 """
 
+# TODO: Truncate history if repeated sha1.
+# TODO: Check that one of the histories is completely contained in the other.
+
 import sys
 import os
 import time
 import hashlib
 
 SERVER = 'bb'
-
-
-# TODO: Truncate history if repeated sha1.
 
 
 def main():
