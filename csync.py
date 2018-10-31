@@ -76,6 +76,13 @@ def cfile(fname):
     return fname + '.gpg'
 
 
+def tfile(location, fname):
+    tmp = 'tmp_%s_%s' % (location, fname)
+    for c in [':', ' ', '/']:
+        tmp = tmp.replace(c, '_')
+    return tmp
+
+
 def remote_exists(location, *args):
     "Return True if the given files exist in the remote location"
     server, path = location.split(':', 1)
@@ -120,7 +127,7 @@ def get_history_local(fname):
 def get_history_remote(location, fname):
     print('Getting remote history file (%s) ...' % hfile(fname))
     path_remote = '%s/%s' % (location, fname)
-    path_tmp = 'tmp_%s_%s' % (location.replace(':', '_'), fname)
+    path_tmp = tfile(location, fname)
     run('scp -q %s %s' % (hfile(path_remote), hfile(path_tmp)))
     return get_history_local(path_tmp)
 
@@ -134,7 +141,7 @@ def download(location, fname):
 
 
 def download_with_different_name(location, fname):
-    name_new = 'tmp_%s_%s' % (location.replace(':', '_'), fname)
+    name_new = tfile(location, fname)
     print('Downloading %s with name %s ...' % (fname, name_new))
     run('scp -q %s/%s %s' % (location, cfile(fname), cfile(name_new)))
     run('scp -q %s/%s %s' % (location, hfile(fname), hfile(name_new)))
@@ -163,7 +170,7 @@ def decrypt(fname):
 
 def delete_temp_files(location, fname):
     print('Deleting temporary files.')
-    path_tmp = 'tmp_%s_%s' % (location.replace(':', '_'), fname)
+    path_tmp = tfile(location, fname)
     for tmp in [hfile(path_tmp), cfile(fname)]:
         if os.path.exists(tmp):
             run('rm %s' % tmp)
