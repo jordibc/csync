@@ -38,22 +38,23 @@ def main():
 
     if history_local == history_remote:
         log('Same version everywhere, not updating anything.')
+        delete_temp_files(args.location, args.file)
     elif includes(history_local, history_remote):
         log('Local version is newer. Uploading.')
         upload(args.location, args.file)
+        delete_temp_files(args.location, args.file)
     elif includes(history_remote, history_local):
         log('Remote version is newer. Downloading.')
         download(args.location, args.file)
+        delete_temp_files(args.location, args.file)
     else:
         log('Versions have diverged. You will need to check manually.')
         download_with_different_name(args.location, args.file)
 
-    delete_temp_files(args.location, args.file)
-
 
 def includes(a, b):
     "Return True if a includes all the elements of b"
-    return all(a[i] == b[i] for i in range(len(b)))
+    return len(a) >= len(b) and all(a[i] == b[i] for i in range(len(b)))
 
 
 def get_args():
