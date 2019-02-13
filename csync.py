@@ -15,41 +15,53 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter as fmt
 def main():
     args = get_args()
 
-    if not os.path.exists(args.file):
-        sys.exit("File doesn't exist: %s" % args.file)
+    if args.list:
+        server, path = args.location.split(':', 1)
+        run('ssh -q %s ls %s/*.history' % (server, path))
+    else:
+        for fname in args.files:
+            sync(fname, args.location, args.start)
 
-    if args.start:
-        log('Creating %s to track synchronizations...' % hfile(args.file))
-        if os.path.exists(hfile(args.file)):
-            sys.exit('%s already exists!' % hfile(args.file))
-        update_history(args.file)
 
-        if not remote_exists(args.location, cfile(args.file), hfile(args.file)):
+def sync(fname, location, start=False):
+    "Synchronize file fname using location as a repository"
+    # If start==True, it will create the .history file before.
+
+    if not os.path.exists(fname):
+        sys.exit("File doesn't exist: %s" % fname)
+
+    if start:
+        log('Creating %s to track synchronizations...' % hfile(fname))
+        if os.path.exists(hfile(fname)):
+            sys.exit('%s already exists!' % hfile(fname))
+        update_history(fname)
+
+        if not remote_exists(location, cfile(fname), hfile(fname)):
             log("Newly tracked file doesn't exist remotely. Uploading.")
-            upload(args.location, args.file)
+            upload(location, fname)
             sys.exit()
 
-    assert_tracking(args.location, args.file)
+    assert_tracking(location, fname)
 
-    update_history(args.file)
+    update_history(fname)
 
-    history_local = get_history_local(args.file)
-    history_remote = get_history_remote(args.location, args.file) or ['nan']
+    history_local = get_history_local(fname)
+    history_remote = get_history_remote(location, fname) or ['nan']
 
     if history_local == history_remote:
         log('Same version everywhere, not updating anything.')
-        delete_temp_files(args.location, args.file)
+        delete_temp_files(location, fname)
     elif includes(history_local, history_remote):
         log('Local version is newer. Uploading.')
-        upload(args.location, args.file)
-        delete_temp_files(args.location, args.file)
+        upload(location, fname)
+        delete_temp_files(location, fname)
     elif includes(history_remote, history_local):
         log('Remote version is newer. Downloading.')
-        download(args.location, args.file)
-        delete_temp_files(args.location, args.file)
+        download(location, fname)
+        delete_temp_files(location, fname)
     else:
         log('Versions have diverged. You will need to check manually.')
-        download_with_different_name(args.location, args.file)
+        download_with_different_name(location, fname)
 
 
 def includes(a, b):
@@ -60,10 +72,16 @@ def includes(a, b):
 def get_args():
     parser = ArgumentParser(description=__doc__, formatter_class=fmt)
     add = parser.add_argument  # shortcut
-    add('file', help='file to sync')
+    add('files', metavar='FILE', nargs='*', help='file to sync')
     add('--location', default='bb:sync', help='central sync storage')
+    add('--list', action='store_true', help='list remotely tracked files')
     add('--start', action='store_true', help='create initial file sync')
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if not args.files and not args.list:
+        sys.exit(parser.format_usage().strip())
+
+    return args
 
 
 def hfile(fname):
