@@ -5,6 +5,8 @@ Syncs a file that may exist in different machines, with a server
 that only contains an encrypted version of the file.
 """
 
+# TODO: Add option to (try to) merge differences automatically.
+
 import sys
 import os
 import time
@@ -25,7 +27,7 @@ def main():
 
 def sync(fname, location, start=False):
     "Synchronize file fname using location as a repository"
-    # If start==True, it will create the .history file before.
+    # If start==True, it will create the .history file first.
 
     if not os.path.exists(fname):
         sys.exit("File doesn't exist: %s" % fname)
@@ -165,6 +167,9 @@ def download_with_different_name(location, fname):
     run('scp -q %s/%s %s' % (location, hfile(fname), hfile(name_new)))
     decrypt(name_new)
     print('Check the differences in files %s %s' % (name_new, fname))
+    print(('You probably want to merge them into %s, rename it to %s, replace '
+           '%s by %s and run csync again.') % (name_new, fname,
+                                               hfile(fname), hfile(name_new)))
 
 
 def backup(fname):
