@@ -132,7 +132,7 @@ def update_history(fname):
     history = get_history_local(fname) if os.path.exists(hfile(fname)) else []
     if not history or csum != history[-1]:
         print('Updating %s ...' % hfile(fname))
-        new_entry = '%s  %s\n' % (csum, time.asctime())
+        new_entry = '%s  %s at %s\n' % (csum, time.asctime(), os.uname()[1])
         open(hfile(fname), 'at').write(new_entry)
 
 
