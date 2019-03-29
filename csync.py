@@ -11,6 +11,7 @@ import sys
 import os
 import time
 import hashlib
+import subprocess
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter as fmt
 
 
@@ -18,11 +19,25 @@ def main():
     args = get_args()
 
     if args.list:
-        server, path = args.location.split(':', 1)
-        run('ssh -q %s ls %s/*.history' % (server, path))
+        list_tracked(args.location)
     else:
         for fname in args.files:
             sync(fname, args.location, args.start)
+
+
+def list_tracked(location):
+    "Print local and remotely tracked files"
+    get_output = lambda cmd: subprocess.getoutput(cmd).splitlines()
+    get_fname = lambda x: x.split('/', 1)[-1][:-len('.history')]
+
+    log('Getting local files that appear to be tracked...')
+    for path in get_output('ls *.history'):
+        print(get_fname(path))
+
+    log('Getting remotely tracked files in %s ...' % location)
+    server, path = location.split(':', 1)
+    for path in get_output('ssh -q %s ls %s/*.history' % (server, path)):
+        print(get_fname(path))
 
 
 def sync(fname, location, start=False):
@@ -76,7 +91,7 @@ def get_args():
     add = parser.add_argument  # shortcut
     add('files', metavar='FILE', nargs='*', help='file to sync')
     add('--location', default='bb:sync', help='central sync storage')
-    add('--list', action='store_true', help='list remotely tracked files')
+    add('--list', action='store_true', help='list tracked files')
     add('--start', action='store_true', help='create initial file sync')
     args = parser.parse_args()
 
