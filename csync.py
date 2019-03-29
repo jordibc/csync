@@ -138,8 +138,8 @@ def assert_tracking(location, fname):
         sys.exit(e)
     # We could also check the consistency of the remote history by
     # computing the hash of the remote file (after copying it locally
-    # and unencrypting) and comparing it to the first entry in the
-    # remote history (ssh $server head -n 1 $fname.history).
+    # and unencrypting) and comparing it to the last entry in the
+    # remote history (ssh $server tail -n 1 $fname.history).
 
 
 def update_history(fname):
@@ -168,7 +168,7 @@ def get_history_remote(location, fname):
 
 
 def download(location, fname):
-    print('Downloading %s ...' % fname)
+    print('Downloading (after creating a backup) %s ...' % fname)
     backup(fname)
     path = '%s/%s' % (location, fname)
     run('scp -q %s %s .' % (cfile(path), hfile(path)))
