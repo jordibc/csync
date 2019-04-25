@@ -143,6 +143,7 @@ def assert_tracking(location, fname):
 
 
 def update_history(fname):
+    "Add current checksum of fname to its history file if not there yet"
     csum = checksum(fname)
     history = get_history_local(fname) if os.path.exists(hfile(fname)) else []
     if not history or csum != history[-1]:
