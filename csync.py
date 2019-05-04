@@ -47,6 +47,11 @@ def sync(fname, location, start=False):
     if not os.path.exists(fname):
         sys.exit("File doesn't exist: %s" % fname)
 
+    if os.stat(fname).st_size == 0:
+        answer = input('Local version is empty! Sync anyway? [y/n] ')
+        if not answer.lower().startswith('y'):
+            sys.exit('Cancelling.')
+
     if start:
         log('Creating %s to track synchronizations...' % hfile(fname))
         if os.path.exists(hfile(fname)):
