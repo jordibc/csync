@@ -158,7 +158,7 @@ def update_history(fname):
 
 
 def checksum(fname):
-    return hashlib.sha1(open(fname).read().encode('utf8')).hexdigest()
+    return hashlib.blake2b(open(fname, 'rb').read()).hexdigest()
 
 
 def get_history_local(fname):
