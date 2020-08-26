@@ -5,8 +5,6 @@ Syncs a file that may exist in different machines, with a server
 that only contains an encrypted version of the file.
 """
 
-# TODO: Add option to (try to) merge differences automatically.
-
 import sys
 import os
 import time
