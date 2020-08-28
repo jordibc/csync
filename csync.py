@@ -204,18 +204,19 @@ def upload(location, fname):
 
 def encrypt(fname):
     xtra_args = passfile_args()
-    run('gpg %s -o - -c %s > %s' % (xtra_args, fname, cfile(fname)))
+    run('gpg %s-o - -c %s > %s' % (xtra_args, fname, cfile(fname)))
 
 
 def decrypt(fname):
     xtra_args = passfile_args()
-    run('gpg %s -o - -d %s > %s' % (xtra_args, cfile(fname), fname))
+    run('gpg %s-o - -d %s > %s' % (xtra_args, cfile(fname), fname))
 
 
 def passfile_args():
     passfile = os.environ['HOME'] + '/.config/csync/pass'
-    return '' if not os.path.exists(passfile) else \
-        '--batch --pinentry-mode loopback --passphrase-file "%s"' % passfile
+    return ('' if not os.path.exists(passfile) else
+            '--batch --pinentry-mode loopback '
+            '--passphrase-file "%s" \\\n    ' % passfile)
 
 
 def delete_temp_files(location, fname):
