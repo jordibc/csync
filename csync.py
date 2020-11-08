@@ -18,9 +18,28 @@ def main():
 
     if args.list:
         list_tracked(args.location)
+    elif args.init:
+        for fname in args.files:
+            init(fname, args.location)
     else:
         for fname in args.files:
-            sync(fname, args.location, args.start)
+            sync(fname, args.location)
+
+
+
+def get_args():
+    parser = ArgumentParser(description=__doc__, formatter_class=fmt)
+    add = parser.add_argument  # shortcut
+    add('files', metavar='FILE', nargs='*', help='file to sync')
+    add('--location', default='bb:sync', help='central sync storage')
+    add('--list', action='store_true', help='list tracked files')
+    add('--init', action='store_true', help='create initial file sync')
+    args = parser.parse_args()
+
+    if not args.files and not args.list:
+        sys.exit(parser.format_usage().strip())
+
+    return args
 
 
 def list_tracked(location):
@@ -38,10 +57,22 @@ def list_tracked(location):
         print(get_fname(path))
 
 
-def sync(fname, location, start=False):
-    "Synchronize file fname using location as a repository"
-    # If start==True, it will create the .history file first.
+def init(fname, location):
+    "Create the .history file and do the first synchronization"
+    log('Creating %s to track synchronizations...' % hfile(fname))
+    if os.path.exists(hfile(fname)):
+        sys.exit('%s already exists!' % hfile(fname))
+    update_history(fname)
 
+    if remote_exists(fname, location):
+        sync(fname, location)
+    else:
+        log("Newly tracked file doesn't exist remotely. Uploading.")
+        upload(fname, location)
+
+
+def sync(fname, location):
+    "Synchronize file fname using location as a repository"
     if not os.path.exists(fname):
         sys.exit("File doesn't exist: %s" % fname)
 
@@ -50,58 +81,32 @@ def sync(fname, location, start=False):
         if not answer.lower().startswith('y'):
             sys.exit('Cancelling.')
 
-    if start:
-        log('Creating %s to track synchronizations...' % hfile(fname))
-        if os.path.exists(hfile(fname)):
-            sys.exit('%s already exists!' % hfile(fname))
-        update_history(fname)
-
-        if not remote_exists(location, cfile(fname), hfile(fname)):
-            log("Newly tracked file doesn't exist remotely. Uploading.")
-            upload(location, fname)
-            sys.exit()
-
-    assert_tracking(location, fname)
+    assert_tracking(fname, location)
 
     update_history(fname)
 
     history_local = get_history_local(fname)
-    history_remote = get_history_remote(location, fname) or ['nan']
+    history_remote = get_history_remote(fname, location) or ['nan']
 
     if history_local == history_remote:
         log('Same version everywhere, not updating anything.')
-        delete_temp_files(location, fname)
+        delete_temp_files(fname, location)
     elif includes(history_local, history_remote):
         log('Local version is newer. Uploading.')
-        upload(location, fname)
-        delete_temp_files(location, fname)
+        upload(fname, location)
+        delete_temp_files(fname, location)
     elif includes(history_remote, history_local):
         log('Remote version is newer. Downloading.')
-        download(location, fname)
-        delete_temp_files(location, fname)
+        download(fname, location)
+        delete_temp_files(fname, location)
     else:
         log('Versions have diverged. You will need to check manually.')
-        download_with_different_name(location, fname)
+        download_with_different_name(fname, location)
 
 
 def includes(a, b):
-    "Return True if a includes all the elements of b"
+    "Return True only if list a begins with all the elements of list b"
     return len(a) >= len(b) and all(a[i] == b[i] for i in range(len(b)))
-
-
-def get_args():
-    parser = ArgumentParser(description=__doc__, formatter_class=fmt)
-    add = parser.add_argument  # shortcut
-    add('files', metavar='FILE', nargs='*', help='file to sync')
-    add('--location', default='bb:sync', help='central sync storage')
-    add('--list', action='store_true', help='list tracked files')
-    add('--start', action='store_true', help='create initial file sync')
-    args = parser.parse_args()
-
-    if not args.files and not args.list:
-        sys.exit(parser.format_usage().strip())
-
-    return args
 
 
 def hfile(fname):
@@ -114,33 +119,33 @@ def cfile(fname):
     return fname + '.gpg'
 
 
-def tfile(location, fname):
-    "Return name of temporal file corresponding to file fname at a given location"
-    # 'remoteserver:data/sync', 'notes.txt' -> 'tmp_remoteserver_data_sync_notest.txt
+def tfile(fname, location):
+    "Return name of temp file corresponding to file fname at a given location"
+    # 'server:data/sync', 'notes.txt' -> 'tmp_server_data_sync_notest.txt'
     tmp = 'tmp_%s_%s' % (location, fname)
     for c in [':', ' ', '/']:
         tmp = tmp.replace(c, '_')
     return tmp
 
 
-def remote_exists(location, *args):
-    "Return True if the given files exist in the remote location"
+def remote_exists(fname, location):
+    "Return True if the files corresponding to fname exist in the remote location"
     server, path = location.split(':', 1)
-    fnames = ' '.join('"%s/%s"' % (path, x) for x in args)
+    fnames = ' '.join('"%s/%s"' % (path, x) for x in [cfile(fname), hfile(fname)])
     print('Checking if remote files exist at %s: %s' % (server, fnames))
     return os.system('ssh %s ls %s > /dev/null 2>&1' % (server, fnames)) == 0
 
 
-def assert_tracking(location, fname):
+def assert_tracking(fname, location):
     "Assert that fname is correctly being tracked and exit if not"
     print('Checking that %s is correctly being tracked...' % fname)
     try:
         for f in [fname, hfile(fname)]:
             assert os.path.exists(f), "File doesn't exist: %s" % f
-        assert remote_exists(location, cfile(fname), hfile(fname)), \
-            'Must exist in %s : %s %s' % (location, cfile(fname), hfile(fname))
+        assert remote_exists(fname, location), \
+            'Missing corresponding files at %s' % location
     except AssertionError as e:
-        sys.exit(e)
+        sys.exit('%s. Maybe run with --init first?' % e)
     # We could also check the consistency of the remote history by
     # computing the hash of the remote file (after copying it locally
     # and unencrypting) and comparing it to the last entry in the
@@ -165,15 +170,15 @@ def get_history_local(fname):
     return [line.split()[0] for line in open(hfile(fname))]
 
 
-def get_history_remote(location, fname):
+def get_history_remote(fname, location):
     print('Getting remote history file (%s) ...' % hfile(fname))
     path_remote = '%s/%s' % (location, fname)
-    path_tmp = tfile(location, fname)
+    path_tmp = tfile(fname, location)
     run('scp -q %s %s' % (hfile(path_remote), hfile(path_tmp)))
     return get_history_local(path_tmp)
 
 
-def download(location, fname):
+def download(fname, location):
     print('Downloading (after creating a backup) %s ...' % fname)
     backup(fname)
     path = '%s/%s' % (location, fname)
@@ -181,8 +186,8 @@ def download(location, fname):
     decrypt(fname)
 
 
-def download_with_different_name(location, fname):
-    name_new = tfile(location, fname)
+def download_with_different_name(fname, location):
+    name_new = tfile(fname, location)
     print('Downloading %s with name %s ...' % (fname, name_new))
     run('scp -q %s/%s %s' % (location, cfile(fname), cfile(name_new)))
     run('scp -q %s/%s %s' % (location, hfile(fname), hfile(name_new)))
@@ -198,7 +203,7 @@ def backup(fname):
     run('cp %s %s.backup_%s' % (fname, fname, t))
 
 
-def upload(location, fname):
+def upload(fname, location):
     print('Uploading %s ...' % fname)
     encrypt(fname)
     run('scp -q %s %s %s' % (cfile(fname), hfile(fname), location))
@@ -222,9 +227,9 @@ def passfile_args():
             '--passphrase-file "%s" \\\n    ' % passfile)
 
 
-def delete_temp_files(location, fname):
+def delete_temp_files(fname, location):
     print('Deleting temporary files.')
-    path_tmp = tfile(location, fname)
+    path_tmp = tfile(fname, location)
     for tmp in [hfile(path_tmp), cfile(fname)]:
         if os.path.exists(tmp):
             run('rm %s' % tmp)
