@@ -4,17 +4,80 @@ Syncs a file that may exist in different machines, with a server that
 only contains an encrypted version of the file.
 
 
+# What does it try to solve?
+
+I want to have a file *synchronized between my different computers*
+(for example a text file with personal information).
+
+A simple solution could be to have that file in one of those cloud
+servers out there, but I don't trust them ([do
+you?](https://en.wikipedia.org/wiki/Edward_Snowden#Revelations)).
+
+I have a remote server I can log in with ssh. I could put a [git
+server](https://git-scm.com/book/fa/v2/Git-on-the-Server-Setting-Up-the-Server)
+there, or maybe set up [nextcloud]([https://nextcloud.com/), and
+then I could do the synchronization easily. But I don't want to bother
+(too much work, I'm lazy!), I don't want to rely on complex software,
+and most importantly I don't want to trust any remote computer -- only
+my own computers and some simpler tools like [gpg](https://gnupg.org/).
+
+So I wrote this utility. It first encrypts the file you want to
+synchronize, and then uploads it to a remote location. Or downloads
+the remote file and unencrypts it on your local machine. Depends on
+which one is the last version. (Or if the versions have diverged, it
+downloads and unencrypts the remote one with a different name so you
+solve the differences).
+
+
+# How does it work?
+
+In order to know which version is more recent, and also if there have
+been divergences between files in different computers, it stores a
+file with a list of hashes of the unencrypted file, both locally and
+remotely (in addition to the *unencrypted file locally* and the
+*encrypted file remotely*).
+
+If the file you are synchronizing is called `notes.txt`, the file with
+the list of hashes will be called `notes.txt.history`, and it will
+look like:
+
+```
+68846e...78aa6b  Wed Sep  4 13:22:10 2020 at computer1
+39752b...432e33  Wed Sep 19 18:33:57 2020 at computer2
+fb045e...4dea9e  Wed Oct  4 21:18:21 2020 at computer1
+5d34b7...c11a36  Wed Nov  2 11:33:27 2020 at computer3
+d2fa12...dcbf81  Sat Nov  7 00:26:01 2020 at computer3
+```
+
+The first part of each line is actually a
+[blake2b](https://en.wikipedia.org/wiki/BLAKE_(hash_function) hash of
+the file at the time that csync was run. The second part is just a
+timestamp and the name of the computer where it was done, and it is
+only there for visual inspection, but it is not used in any way by
+csync.
+
+When synchronizing, it first updates this local *history file* if
+there are any changes since the last time, then downloads the remote
+history file and compares them. If the full history of changes is
+contained in the local file, then the local one is the more recent and
+it encrypts it and uploads it (plus the updated history file). If the
+remote changes contain the local ones, it downloads the encrypted
+remote file and unencrypts it (making a backup of the local file
+first, just in case). And if the histories have diverged, it downloads
+and unencrypts the remote one and tells you to manually merge them.
+
+
 # Example
 
 ```
-$ csync notes.html
-Checking that notes.html is correctly being tracked...
-Checking if remote files exist at bb: "sync/notes.html.gpg" "sync/notes.html.history"
-Getting remote history file (notes.html.history) ...
-scp -q bb:sync/notes.html.history tmp_bb_sync_notes.html.history
+$ csync --location remoteserver:sync notes.txt
+Checking that notes.txt is correctly being tracked...
+Checking if remote files exist at remoteserver: "sync/notes.txt.gpg" "sync/notes.txt.history"
+Getting remote history file (notes.txt.history) ...
+scp -q remoteserver:sync/notes.txt.history tmp_remoteserver_sync_notes.txt.history
 Same version everywhere, not updating anything.
 Deleting temporary files.
-rm tmp_bb_sync_notes.html.history
+rm tmp_remoteserver_sync_notes.txt.history
 ```
 
 
@@ -26,11 +89,11 @@ usage: csync [-h] [--location LOCATION] [--list] [--start] [FILE [FILE ...]]
 Syncs a file that may exist in different machines, with a server that only contains an encrypted version of the file.
 
 positional arguments:
-  FILE                 file to sync (default: None)
+  FILE                 file to sync
 
 optional arguments:
   -h, --help           show this help message and exit
-  --location LOCATION  central sync storage (default: bb:sync)
-  --list               list tracked files (default: False)
-  --start              create initial file sync (default: False)
+  --location LOCATION  central sync storage
+  --list               list tracked files
+  --start              create initial file sync
 ```
