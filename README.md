@@ -1,7 +1,10 @@
 # csync
 
-Syncs a file that may exist in different machines, with a server that
-only contains an encrypted version of the file.
+**C**rypto-**sync**hronize files.
+
+Syncs a file that may exist in different machines, using a remote
+location as a repository (which will only contain an encrypted version
+of the file).
 
 
 # What does it try to solve?
@@ -83,7 +86,7 @@ rm tmp_remoteserver_sync_notes.txt.history
 # Usage
 
 ```
-usage: csync [-h] [--location LOCATION] [--list] [--start] [FILE [FILE ...]]
+usage: csync [-h] [--location LOCATION] [--list] [--init] [FILE [FILE ...]]
 
 Syncs a file that may exist in different machines, with a server that only
 contains an encrypted version of the file.
@@ -95,5 +98,5 @@ optional arguments:
   -h, --help           show this help message and exit
   --location LOCATION  central sync storage
   --list               list tracked files
-  --start              create initial file sync
+  --init               create initial file sync
 ```
