@@ -15,7 +15,7 @@ you?](https://en.wikipedia.org/wiki/Edward_Snowden#Revelations)).
 
 I have a remote server I can log in with ssh. I could put a [git
 server](https://git-scm.com/book/fa/v2/Git-on-the-Server-Setting-Up-the-Server)
-there, or maybe set up [nextcloud]([https://nextcloud.com/), and
+there, or maybe set up [nextcloud](https://nextcloud.com/), and
 then I could do the synchronization easily. But I don't want to bother
 (too much work, I'm lazy!), I don't want to rely on complex software,
 and most importantly I don't want to trust any remote computer -- only
@@ -26,7 +26,7 @@ synchronize, and then uploads it to a remote location. Or downloads
 the remote file and unencrypts it on your local machine. Depends on
 which one is the last version. (Or if the versions have diverged, it
 downloads and unencrypts the remote one with a different name so you
-solve the differences).
+solve the differences.)
 
 
 # How does it work?
@@ -42,19 +42,18 @@ the list of hashes will be called `notes.txt.history`, and it will
 look like:
 
 ```
-68846e...78aa6b  Wed Sep  4 13:22:10 2020 at computer1
-39752b...432e33  Wed Sep 19 18:33:57 2020 at computer2
-fb045e...4dea9e  Wed Oct  4 21:18:21 2020 at computer1
-5d34b7...c11a36  Wed Nov  2 11:33:27 2020 at computer3
+68846e...78aa6b  Fri Sep  4 13:22:10 2020 at computer1
+39752b...432e33  Sat Sep 19 18:33:57 2020 at computer2
+fb045e...4dea9e  Sun Oct  4 21:18:21 2020 at computer1
+5d34b7...c11a36  Mon Nov  2 11:33:27 2020 at computer3
 d2fa12...dcbf81  Sat Nov  7 00:26:01 2020 at computer3
 ```
 
 The first part of each line is actually a
-[blake2b](https://en.wikipedia.org/wiki/BLAKE_(hash_function) hash of
+[blake2b](https://en.wikipedia.org/wiki/BLAKE_(hash_function)) hash of
 the file at the time that csync was run. The second part is just a
 timestamp and the name of the computer where it was done, and it is
-only there for visual inspection, but it is not used in any way by
-csync.
+only there for visual inspection, but not used in any way by csync.
 
 When synchronizing, it first updates this local *history file* if
 there are any changes since the last time, then downloads the remote
