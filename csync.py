@@ -115,6 +115,8 @@ def cfile(fname):
 
 
 def tfile(location, fname):
+    "Return name of temporal file corresponding to file fname at a given location"
+    # 'remoteserver:data/sync', 'notes.txt' -> 'tmp_remoteserver_data_sync_notest.txt
     tmp = 'tmp_%s_%s' % (location, fname)
     for c in [':', ' ', '/']:
         tmp = tmp.replace(c, '_')
@@ -213,6 +215,7 @@ def decrypt(fname):
 
 
 def passfile_args():
+    "Return arguments for gpg to use the password stored in the config file"
     passfile = os.environ['HOME'] + '/.config/csync/pass'
     return ('' if not os.path.exists(passfile) else
             '--batch --pinentry-mode loopback '

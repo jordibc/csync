@@ -50,7 +50,7 @@ d2fa12...dcbf81  Sat Nov  7 00:26:01 2020 at computer3
 ```
 
 The first part of each line is actually a
-[blake2b](https://en.wikipedia.org/wiki/BLAKE_(hash_function)) hash of
+[blake2b hash](https://en.wikipedia.org/wiki/BLAKE_(hash_function)#BLAKE2) of
 the file at the time that csync was run. The second part is just a
 timestamp and the name of the computer where it was done, and it is
 only there for visual inspection, but not used in any way by csync.
@@ -85,7 +85,8 @@ rm tmp_remoteserver_sync_notes.txt.history
 ```
 usage: csync [-h] [--location LOCATION] [--list] [--start] [FILE [FILE ...]]
 
-Syncs a file that may exist in different machines, with a server that only contains an encrypted version of the file.
+Syncs a file that may exist in different machines, with a server that only
+contains an encrypted version of the file.
 
 positional arguments:
   FILE                 file to sync
