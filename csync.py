@@ -59,6 +59,9 @@ def list_tracked(location):
 
 def init(fname, location):
     "Create the .history file and do the first synchronization"
+    if not os.path.exists(fname):
+        sys.exit("File doesn't exist: %s" % fname)
+
     log('Creating %s to track synchronizations...' % hfile(fname))
     if os.path.exists(hfile(fname)):
         sys.exit('%s already exists!' % hfile(fname))
