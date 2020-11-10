@@ -124,7 +124,7 @@ def cfile(fname):
 
 def tfile(fname, location):
     "Return name of temp file corresponding to file fname at a given location"
-    # 'server:data/sync', 'notes.txt' -> 'tmp_server_data_sync_notest.txt'
+    # 'server:data/sync', 'notes.txt' -> 'tmp_server_data_sync_notes.txt'
     tmp = 'tmp_%s_%s' % (location, fname)
     for c in [':', ' ', '/']:
         tmp = tmp.replace(c, '_')
