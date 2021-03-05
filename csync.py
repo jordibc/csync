@@ -62,9 +62,9 @@ def init(fname, location):
     if not os.path.exists(fname):
         sys.exit("File doesn't exist: %s" % fname)
 
-    log('Creating %s to track synchronizations...' % hfile(fname))
+    log(f'Creating "{hfile(fname)}" to track synchronizations...')
     if os.path.exists(hfile(fname)):
-        sys.exit('%s already exists!' % hfile(fname))
+        sys.exit(f'"{hfile(fname)}" already exists!')
     update_history(fname)
 
     if remote_exists(fname, location):
@@ -77,7 +77,7 @@ def init(fname, location):
 def sync(fname, location):
     "Synchronize file fname using location as a repository"
     if not os.path.exists(fname):
-        sys.exit("File doesn't exist: %s" % fname)
+        sys.exit(f"File doesn't exist: {fname}")
 
     if os.stat(fname).st_size == 0:
         answer = input('Local version is empty! Sync anyway? [y/n] ')
@@ -135,18 +135,18 @@ def remote_exists(fname, location):
     "Return True if the files corresponding to fname exist in the remote location"
     server, path = location.split(':', 1)
     fnames = ' '.join('"%s/%s"' % (path, x) for x in [cfile(fname), hfile(fname)])
-    print('Checking if remote files exist at %s: %s' % (server, fnames))
-    return os.system('ssh %s ls %s > /dev/null 2>&1' % (server, fnames)) == 0
+    print(f'Checking if remote files exist at {server}: {fnames}')
+    return os.system(f"ssh {server} 'ls {fnames}' > /dev/null 2>&1") == 0
 
 
 def assert_tracking(fname, location):
     "Assert that fname is correctly being tracked and exit if not"
-    print('Checking that %s is correctly being tracked...' % fname)
+    print(f'Checking that "{fname}" is correctly being tracked...')
     try:
         for f in [fname, hfile(fname)]:
-            assert os.path.exists(f), "File doesn't exist: %s" % f
+            assert os.path.exists(f), f"File doesn't exist: {f}"
         assert remote_exists(fname, location), \
-            'Missing corresponding files at %s' % location
+            f'Missing corresponding files at {location}'
     except AssertionError as e:
         sys.exit('%s. Maybe run with --init first?' % e)
     # We could also check the consistency of the remote history by
@@ -160,8 +160,8 @@ def update_history(fname):
     csum = checksum(fname)
     history = get_history_local(fname) if os.path.exists(hfile(fname)) else []
     if not history or csum != history[-1]:
-        print('Updating %s ...' % hfile(fname))
-        new_entry = '%s  %s at %s\n' % (csum, time.asctime(), os.uname()[1])
+        print(f'Updating "{hfile(fname)}" ...')
+        new_entry = f'{csum}  {time.asctime()} at {os.uname()[1]}\n'
         open(hfile(fname), 'at').write(new_entry)
 
 
@@ -174,52 +174,52 @@ def get_history_local(fname):
 
 
 def get_history_remote(fname, location):
-    print('Getting remote history file (%s) ...' % hfile(fname))
-    path_remote = '%s/%s' % (location, fname)
+    print(f'Getting remote history file ("{hfile(fname)}") ...')
+    path_remote = f'{location}/{fname}'.replace(' ', '\\ ')
     path_tmp = tfile(fname, location)
-    run('scp -q %s %s' % (hfile(path_remote), hfile(path_tmp)))
+    run(f'scp -q "{hfile(path_remote)}" {hfile(path_tmp)}')
     return get_history_local(path_tmp)
 
 
 def download(fname, location):
-    print('Downloading (after creating a backup) %s ...' % fname)
+    print(f'Downloading (after creating a backup) "{fname}" ...')
     backup(fname)
-    path = '%s/%s' % (location, fname)
-    run('scp -q %s %s .' % (cfile(path), hfile(path)))
+    path = f'{location}/{fname}'.replace(' ', '\\ ')
+    run(f'scp -q "{cfile(path)}" "{hfile(path)}" .')
     decrypt(fname)
 
 
 def download_with_different_name(fname, location):
     name_new = tfile(fname, location)
-    print('Downloading %s with name %s ...' % (fname, name_new))
-    run('scp -q %s/%s %s' % (location, cfile(fname), cfile(name_new)))
-    run('scp -q %s/%s %s' % (location, hfile(fname), hfile(name_new)))
+    print(f'Downloading "{fname}" with name "{name_new}" ...')
+    for fn in [cfile, hfile]:
+        fname_escaped = fname.replace(' ', '\\ ')
+        run(f'scp -q "{location}/{fn(fname_escaped)}" {fn(name_new)}')
     decrypt(name_new)
-    print('Check the differences in files %s %s' % (name_new, fname))
-    print(('You probably want to merge them into %s, rename it to %s, replace '
-           '%s by %s and run csync again.') % (name_new, fname,
-                                               hfile(fname), hfile(name_new)))
+    print(f'Check the differences in files "{name_new}" "{fname}"')
+    print((f'Tip: merge them into "{name_new}", rename it to "{fname}", replace '
+           f'"{hfile(fname)}" by "{hfile(name_new)}" and run csync again.'))
 
 
 def backup(fname):
     t = time.strftime('%Y-%m-%d_%H%M')
-    run('cp %s %s.backup_%s' % (fname, fname, t))
+    run(f'cp "{fname}" "{fname}.backup_{t}"')
 
 
 def upload(fname, location):
-    print('Uploading %s ...' % fname)
+    print(f'Uploading "{fname}" ...')
     encrypt(fname)
-    run('scp -q %s %s %s' % (cfile(fname), hfile(fname), location))
+    run(f'scp -q "{cfile(fname)}" "{hfile(fname)}" "{location}"')
 
 
 def encrypt(fname):
     xtra_args = passfile_args()
-    run('gpg %s-o - -c %s > %s' % (xtra_args, fname, cfile(fname)))
+    run('gpg %s-o - -c "%s" > "%s"' % (xtra_args, fname, cfile(fname)))
 
 
 def decrypt(fname):
     xtra_args = passfile_args()
-    run('gpg %s-o - -d %s > %s' % (xtra_args, cfile(fname), fname))
+    run('gpg %s-o - -d "%s" > "%s"' % (xtra_args, cfile(fname), fname))
 
 
 def passfile_args():
@@ -235,14 +235,14 @@ def delete_temp_files(fname, location):
     path_tmp = tfile(fname, location)
     for tmp in [hfile(path_tmp), cfile(fname)]:
         if os.path.exists(tmp):
-            run('rm %s' % tmp)
+            run(f'rm "{tmp}"')
 
 
 def run(cmd):
     print(blue(cmd))
     ret = os.system(cmd)
     if ret != 0:
-        sys.exit('Command failed (exit code: %d)' % ret)
+        sys.exit(f'Command failed (exit code: {ret})')
 
 
 def log(txt):
