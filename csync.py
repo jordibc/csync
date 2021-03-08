@@ -44,8 +44,8 @@ def get_args():
 
 def list_tracked(location):
     "Print local and remotely tracked files"
-    get_output = lambda cmd: subprocess.getoutput(cmd).splitlines()
-    get_fname = lambda x: x.split('/', 1)[-1][:-len('.history')]
+    def get_output(cmd): return subprocess.getoutput(cmd).splitlines()
+    def get_fname(x): return x.split('/', 1)[-1][:-len('.history')]
 
     log('Getting local files that appear to be tracked...')
     for path in get_output('ls *.history'):
