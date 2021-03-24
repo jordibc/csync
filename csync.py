@@ -166,7 +166,7 @@ def update_history(fname):
 
 
 def checksum(fname):
-    return hashlib.blake2b(open(fname, 'rb').read()).hexdigest()
+    return hashlib.sha256(open(fname, 'rb').read()).hexdigest()[:40]
 
 
 def get_history_local(fname):
