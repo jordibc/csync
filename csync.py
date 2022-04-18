@@ -21,11 +21,12 @@ def main():
     elif args.init:
         for fname in args.files:
             init(fname, args.location)
+    elif args.delete_backups:
+        for fname in args.files:
+            delete_backups(fname)
     else:
         for fname in args.files:
             sync(fname, args.location)
-            if args.delete_backups:
-                delete_backups(fname)
 
 
 
@@ -112,7 +113,7 @@ def sync(fname, location):
 
 def delete_backups(fname, n_keep_old=1, n_keep_new=2):
     print('Deleting backups '
-          f'(except the first {n_keep_old} and the last {n_keep_new}).')
+          f'(except the first {n_keep_old} and the last {n_keep_new})...')
     dname = os.path.dirname(fname) or '.'
     backups = [x for x in os.listdir(dname) if x.startswith(fname + '.backup_')]
     backups_to_delete = sorted(backups)[n_keep_old:-n_keep_new]
@@ -121,8 +122,7 @@ def delete_backups(fname, n_keep_old=1, n_keep_new=2):
         log('No backups to delete.')
     else:
         for bfile in backups_to_delete:
-            log(f'Deleting: {bfile}')
-            os.remove(bfile)
+            run(f'rm "{bfile}"')
 
 
 def includes(a, b):
@@ -249,7 +249,7 @@ def passfile_args():
 
 
 def delete_temp_files(fname, location):
-    print('Deleting temporary files.')
+    print('Deleting temporary files...')
     path_tmp = tfile(fname, location)
     for tmp in [hfile(path_tmp), cfile(fname)]:
         if os.path.exists(tmp):
