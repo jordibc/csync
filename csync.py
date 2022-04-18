@@ -24,6 +24,8 @@ def main():
     else:
         for fname in args.files:
             sync(fname, args.location)
+            if args.delete_backups:
+                delete_backups(fname)
 
 
 
@@ -34,6 +36,7 @@ def get_args():
     add('--location', default='bb:sync', help='central sync storage')
     add('--list', action='store_true', help='list tracked files')
     add('--init', action='store_true', help='create initial file sync')
+    add('--delete-backups', action='store_true', help='delete (most) backups')
     args = parser.parse_args()
 
     if not args.files and not args.list:
@@ -105,6 +108,21 @@ def sync(fname, location):
     else:
         log('Versions have diverged. You will need to check manually.')
         download_with_different_name(fname, location)
+
+
+def delete_backups(fname, n_keep_old=1, n_keep_new=2):
+    print('Deleting backups '
+          f'(except the first {n_keep_old} and the last {n_keep_new}).')
+    dname = os.path.dirname(fname) or '.'
+    backups = [x for x in os.listdir(dname) if x.startswith(fname + '.backup_')]
+    backups_to_delete = sorted(backups)[n_keep_old:-n_keep_new]
+
+    if not backups_to_delete:
+        log('No backups to delete.')
+    else:
+        for bfile in backups_to_delete:
+            log(f'Deleting: {bfile}')
+            os.remove(bfile)
 
 
 def includes(a, b):
