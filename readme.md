@@ -85,7 +85,7 @@ rm tmp_remoteserver_sync_notes.txt.history
 # Usage
 
 ```
-usage: csync [-h] [--location LOCATION] [--list] [--init] [FILE [FILE ...]]
+usage: csync [-h] [--location LOCATION] [--list] [--download] [--init] [--delete-backups] [FILE ...]
 
 Syncs a file that may exist in different machines, with a server that only
 contains an encrypted version of the file.
@@ -93,9 +93,23 @@ contains an encrypted version of the file.
 positional arguments:
   FILE                 file to sync
 
-optional arguments:
+options:
   -h, --help           show this help message and exit
   --location LOCATION  central sync storage
   --list               list tracked files
+  --download           force download of remote file
   --init               create initial file sync
+  --delete-backups     delete (most) backups
 ```
+
+
+# Similar projects
+
+A much more advanced synchronization tool is
+[Syncthing](https://syncthing.net/). It has many advantages over
+csync.
+
+The main advantage of csync is that it doesn't require the computers
+to be connected simultaneously for it to synchronize data. It also has
+a simpler setup (if you have an online server that you can use to
+store the encrypted files).
