@@ -45,15 +45,14 @@ the list of hashes will be called `notes.txt.history`, and it will
 look like:
 
 ```
-68846e...78aa6b  Fri Sep  4 13:22:10 2020 at computer1
-39752b...432e33  Sat Sep 19 18:33:57 2020 at computer2
-fb045e...4dea9e  Sun Oct  4 21:18:21 2020 at computer1
-5d34b7...c11a36  Mon Nov  2 11:33:27 2020 at computer3
-d2fa12...dcbf81  Sat Nov  7 00:26:01 2020 at computer3
+68846e...78aa6b  Fri Sep  4 13:22:10 2023 at computer1
+39752b...432e33  Sat Sep 19 18:33:57 2023 at computer2
+fb045e...4dea9e  Sun Oct  4 21:18:21 2023 at computer1
+5d34b7...c11a36  Mon Nov  2 11:33:27 2023 at computer3
+d2fa12...dcbf81  Sat Nov  7 00:26:01 2023 at computer3
 ```
 
-The first part of each line is actually a
-[blake2b hash](https://en.wikipedia.org/wiki/BLAKE_(hash_function)#BLAKE2) of
+Each line starts with the (first 40 characters of the) SHA-256 hash of
 the file at the time that csync was run. The second part is just a
 timestamp and the name of the computer where it was done, and it is
 only there for visual inspection, but not used in any way by csync.
