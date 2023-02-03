@@ -18,6 +18,9 @@ def main():
 
     if args.list:
         list_tracked(args.location)
+    elif args.download:
+        for fname in args.files:
+            download(fname, args.location)
     elif args.init:
         for fname in args.files:
             init(fname, args.location)
@@ -36,6 +39,7 @@ def get_args():
     add('files', metavar='FILE', nargs='*', help='file to sync')
     add('--location', default='bb:sync', help='central sync storage')
     add('--list', action='store_true', help='list tracked files')
+    add('--download', action='store_true', help='force download of remote file')
     add('--init', action='store_true', help='create initial file sync')
     add('--delete-backups', action='store_true', help='delete (most) backups')
     args = parser.parse_args()
@@ -104,6 +108,7 @@ def sync(fname, location):
         delete_temp_files(fname, location)
     elif includes(history_remote, history_local):
         log('Remote version is newer. Downloading.')
+        backup(fname)
         download(fname, location)
         delete_temp_files(fname, location)
     else:
@@ -200,8 +205,7 @@ def get_history_remote(fname, location):
 
 
 def download(fname, location):
-    print(f'Downloading (after creating a backup) "{fname}" ...')
-    backup(fname)
+    print(f'Downloading "{fname}" ...')
     path = f'{location}/{fname}'.replace(' ', '\\ ')
     run(f'scp -q "{cfile(path)}" "{hfile(path)}" .')
     decrypt(fname)
@@ -220,8 +224,9 @@ def download_with_different_name(fname, location):
 
 
 def backup(fname):
+    print(f'Creating backup...')
     t = time.strftime('%Y-%m-%d_%H%M')
-    run(f'cp "{fname}" "{fname}.backup_{t}"')
+    run(f'cp -v "{fname}" "{fname}.backup_{t}"')
 
 
 def upload(fname, location):
