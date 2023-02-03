@@ -242,7 +242,9 @@ def decrypt(fname):
 
 def passfile_args():
     "Return arguments for gpg to use the password stored in the config file"
-    passfile = os.environ['HOME'] + '/.config/csync/pass'
+    config_dir = os.environ.get('XDG_CONFIG_HOME',
+                                os.environ['HOME'] + '/.config') + '/csync'
+    passfile = f'{config_dir}/pass'
     return ('' if not os.path.exists(passfile) else
             '--batch --pinentry-mode loopback '
             '--passphrase-file "%s" \\\n    ' % passfile)
