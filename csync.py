@@ -155,7 +155,7 @@ def tfile(fname, location):
 
 
 def remote_exists(fname, location):
-    "Return True if the files corresponding to fname exist in the remote location"
+    "Return True if the files related to fname exist in the remote location"
     server, path = location.split(':', 1)
     fnames = ' '.join('"%s/%s"' % (path, x) for x in [cfile(fname), hfile(fname)])
     print(f'Checking if remote files exist at {server}: {fnames}')
@@ -219,7 +219,7 @@ def download_with_different_name(fname, location):
         run(f'scp -q "{location}/{fn(fname_escaped)}" {fn(name_new)}')
     decrypt(name_new)
     print(f'Check the differences in files "{name_new}" "{fname}"')
-    print((f'Tip: merge them into "{name_new}", rename it to "{fname}", replace '
+    print((f'Tip: merge into "{name_new}", rename it to "{fname}", replace '
            f'"{hfile(fname)}" by "{hfile(name_new)}" and run csync again.'))
 
 
