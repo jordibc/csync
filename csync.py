@@ -35,6 +35,7 @@ def main():
 
 def get_args():
     parser = ArgumentParser(description=__doc__, formatter_class=fmt)
+
     add = parser.add_argument  # shortcut
     add('files', metavar='FILE', nargs='*', help='file to sync')
     add('--location', default='bb:sync', help='central sync storage')
@@ -42,6 +43,7 @@ def get_args():
     add('--download', action='store_true', help='force download of remote file')
     add('--init', action='store_true', help='create initial file sync')
     add('--delete-backups', action='store_true', help='delete (most) backups')
+
     args = parser.parse_args()
 
     if not args.files and not args.list:
@@ -250,6 +252,7 @@ def passfile_args():
     config_dir = os.environ.get('XDG_CONFIG_HOME',
                                 os.environ['HOME'] + '/.config') + '/csync'
     passfile = f'{config_dir}/pass'
+
     return ('' if not os.path.exists(passfile) else
             '--batch --pinentry-mode loopback '
             '--passphrase-file "%s" \\\n    ' % passfile)
@@ -257,7 +260,9 @@ def passfile_args():
 
 def delete_temp_files(fname, location):
     print('Deleting temporary files...')
+
     path_tmp = tfile(fname, location)
+
     for tmp in [hfile(path_tmp), cfile(fname)]:
         if os.path.exists(tmp):
             run(f'rm "{tmp}"')
@@ -265,7 +270,9 @@ def delete_temp_files(fname, location):
 
 def run(cmd):
     print(blue(cmd))
+
     ret = os.system(cmd)
+
     if ret != 0:
         sys.exit(f'Command failed (exit code: {ret})')
 
