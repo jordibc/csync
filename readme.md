@@ -17,7 +17,7 @@ servers out there, but I don't trust them ([do
 you?](https://en.wikipedia.org/wiki/Edward_Snowden#Revelations)).
 
 I have a remote server I can log in with ssh. I could put a [git
-server](https://git-scm.com/book/fa/v2/Git-on-the-Server-Setting-Up-the-Server)
+server](https://git-scm.com/book/en/v2/Git-on-the-Server-Setting-Up-the-Server)
 there, or maybe set up [nextcloud](https://nextcloud.com/), and
 then I could do the synchronization easily. But I don't want to bother
 (too much work, I'm lazy!), I don't want to rely on complex software,
