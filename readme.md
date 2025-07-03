@@ -21,7 +21,8 @@ Deleting temporary files...
 
 ## 📥 Installation
 
-You can run the csync.py file directly, or install the executable csync with:
+You can run the `csync.py` file directly, or install the executable
+`csync` with:
 
 ```sh
 $ pip install -e .
@@ -105,10 +106,11 @@ synchronize `notes.txt` with:
 $ csync --method scp --location remote:sync notes.txt
 ```
 
-But it will be mount it with sshfs in the script's directory `sync`:
+But if we mount it with sshfs in the script's directory
+`default_mountpoint`:
 
 ```sh
-$ sshfs remote:sync sync -o reconnect,idmap=user
+$ sshfs remote:sync default_mountpoint -o reconnect,idmap=user
 ```
 
 Then we could just do:

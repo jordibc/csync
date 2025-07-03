@@ -38,7 +38,8 @@ def main():
 def get_args():
     parser = ArgumentParser(description=__doc__, formatter_class=fmt)
 
-    default_location = os.path.dirname(os.path.realpath(__file__)) + '/sync'
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    default_location = script_dir + '/default_mountpoint'
 
     add = parser.add_argument  # shortcut
     add('files', metavar='FILE', nargs='*', help='file to sync')
