@@ -7,6 +7,18 @@ location as a repository (which will only contain an encrypted version
 of the file).
 
 
+# Example
+
+```
+$ sshfs remoteserver:sync /data/sync -o reconnect,idmap=user
+$ csync --location /data/sync notes.txt
+Checking that "notes.txt" is correctly being tracked...
+Checking if remote files exist at /data/sync: ['notes.txt.gpg', 'notes.txt.history']
+Same version everywhere, not updating anything.
+Deleting temporary files...
+```
+
+
 # What does it try to solve?
 
 I want to have a file *synchronized between my different computers*
@@ -68,38 +80,58 @@ first, just in case). And if the histories have diverged, it downloads
 and unencrypts the remote one and tells you to manually merge them.
 
 
-# Example
+# Remote connection
 
+`csync` works with or without the remote directory mounted with
+[sshfs](https://github.com/libfuse/sshfs).
+
+If not mounted, it will use `ssh` and `scp` to explore and copy files
+around. If mounted, it will access the mounted directory and will be
+much faster.
+
+For example, if the remote location is `remote:sync`, you could
+synchronize `notes.txt` with:
+
+```sh
+$ csync --method scp --location remote:sync notes.txt
 ```
-$ csync --location remoteserver:sync notes.txt
-Checking that notes.txt is correctly being tracked...
-Checking if remote files exist at remoteserver: "sync/notes.txt.gpg" "sync/notes.txt.history"
-Getting remote history file (notes.txt.history) ...
-scp -q remoteserver:sync/notes.txt.history tmp_remoteserver_sync_notes.txt.history
-Same version everywhere, not updating anything.
-Deleting temporary files.
-rm tmp_remoteserver_sync_notes.txt.history
+
+But it will be mount it with sshfs in the script's directory `sync`:
+
+```sh
+$ sshfs remote:sync sync -o reconnect,idmap=user
 ```
+
+Then we could just do:
+
+```sh
+$ csync notes.txt
+```
+
+and that operation will be faster, as will all the future operations
+with csync.
 
 
 # Usage
 
 ```
-usage: csync [-h] [--location LOCATION] [--list] [--download] [--init] [--delete-backups] [FILE ...]
+usage: csync [-h] [--location LOCATION] [--method {sshfs,scp}] [--list] [--download] [--init] [--delete-backups]
+             [FILE ...]
 
 Syncs a file that may exist in different machines, with a server that only
 contains an encrypted version of the file.
 
 positional arguments:
-  FILE                 file to sync
+  FILE                  file to sync
 
 options:
-  -h, --help           show this help message and exit
-  --location LOCATION  central sync storage
-  --list               list tracked files
-  --download           force download of remote file
-  --init               create initial file sync
-  --delete-backups     delete (most) backups
+  -h, --help            show this help message and exit
+  --location LOCATION   central sync storage
+  --method {sshfs,scp}  connection method (default: sshfs)
+  --list                list tracked files
+  --download            force download of remote file
+  --init                create initial file sync
+  --delete-backups      delete (most) backups
 ```
 
 

@@ -16,29 +16,34 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter as fmt
 def main():
     args = get_args()
 
+    connection = (args.method, args.location)
+
     if args.list:
-        list_tracked(args.location)
+        list_tracked(connection)
     elif args.download:
         for fname in args.files:
-            download(fname, args.location)
+            download(fname, connection)
     elif args.init:
         for fname in args.files:
-            init(fname, args.location)
+            init(fname, connection)
     elif args.delete_backups:
         for fname in args.files:
             delete_backups(fname)
     else:
         for fname in args.files:
-            sync(fname, args.location)
+            sync(fname, connection)
 
 
 
 def get_args():
     parser = ArgumentParser(description=__doc__, formatter_class=fmt)
 
+    default_location = os.path.dirname(os.path.realpath(__file__)) + '/sync'
+
     add = parser.add_argument  # shortcut
     add('files', metavar='FILE', nargs='*', help='file to sync')
-    add('--location', default='bb:sync', help='central sync storage')
+    add('--location', default=default_location, help='central sync storage')
+    add('--method', choices=['sshfs', 'scp'], default='sshfs', help='connection method')
     add('--list', action='store_true', help='list tracked files')
     add('--download', action='store_true', help='force download of remote file')
     add('--init', action='store_true', help='create initial file sync')
@@ -49,25 +54,42 @@ def get_args():
     if not args.files and not args.list:
         sys.exit(parser.format_usage().strip())
 
+    if args.method == 'sshfs' and not is_sshfs_mounted(args.location):
+        sys.exit(f'Missing sshfs mount. Maybe run:\n'
+                 f'  sshfs <host> {args.location} -o reconnect,idmap=user')
+
     return args
 
 
-def list_tracked(location):
+def is_sshfs_mounted(location):
+    for line in subprocess.getoutput('mount -l -t fuse.sshfs').splitlines():
+        if line.split()[2] == location:
+            return True
+    return False
+
+
+def list_tracked(connection):
     "Print local and remotely tracked files"
     def get_output(cmd): return subprocess.getoutput(cmd).splitlines()
-    def get_fname(x): return x.split('/', 1)[-1][:-len('.history')]
+    def get_fname(x): return x.rsplit('/', 1)[-1][:-len('.history')]
 
     log('Getting local files that appear to be tracked...')
-    for path in get_output('ls *.history'):
+    for path in get_output('ls *.history 2> /dev/null'):
         print(get_fname(path))
 
-    log('Getting remotely tracked files in %s ...' % location)
-    server, path = location.split(':', 1)
-    for path in get_output('ssh -q %s ls %s/*.history' % (server, path)):
-        print(get_fname(path))
+    method, location = connection
+
+    log(f'Getting remotely tracked files in {location} ...')
+    if method == 'sshfs':
+        for path in get_output(f'ls {location}/*.history 2> /dev/null'):
+            print(get_fname(path))
+    else:
+        server, path = location.split(':', 1)
+        for path in get_output(f'ssh -q {server} ls {path}/*.history 2> /dev/null'):
+            print(get_fname(path))
 
 
-def init(fname, location):
+def init(fname, connection):
     "Create the .history file and do the first synchronization"
     if not os.path.exists(fname):
         sys.exit("File doesn't exist: %s" % fname)
@@ -77,15 +99,15 @@ def init(fname, location):
         sys.exit(f'"{hfile(fname)}" already exists!')
     update_history(fname)
 
-    if remote_exists(fname, location):
-        sync(fname, location)
+    if remote_exists(fname, connection):
+        sync(fname, connection)
     else:
         log("Newly tracked file doesn't exist remotely. Uploading.")
-        upload(fname, location)
+        upload(fname, connection)
 
 
-def sync(fname, location):
-    "Synchronize file fname using location as a repository"
+def sync(fname, connection):
+    "Synchronize file fname"
     if not os.path.exists(fname):
         sys.exit(f"File doesn't exist: {fname}")
 
@@ -94,28 +116,28 @@ def sync(fname, location):
         if not answer.lower().startswith('y'):
             sys.exit('Cancelling.')
 
-    assert_tracking(fname, location)
+    assert_tracking(fname, connection)
 
     update_history(fname)
 
     history_local = get_history_local(fname)
-    history_remote = get_history_remote(fname, location) or ['nan']
+    history_remote = get_history_remote(fname, connection) or ['nan']
 
     if history_local == history_remote:
         log('Same version everywhere, not updating anything.')
-        delete_temp_files(fname, location)
+        delete_temp_files(fname, connection)
     elif includes(history_local, history_remote):
         log('Local version is newer. Uploading.')
-        upload(fname, location)
-        delete_temp_files(fname, location)
+        upload(fname, connection)
+        delete_temp_files(fname, connection)
     elif includes(history_remote, history_local):
         log('Remote version is newer. Downloading.')
         backup(fname)
-        download(fname, location)
-        delete_temp_files(fname, location)
+        download(fname, connection)
+        delete_temp_files(fname, connection)
     else:
         log('Versions have diverged. You will need to check manually.')
-        download_with_different_name(fname, location)
+        download_with_different_name(fname, connection)
 
 
 def delete_backups(fname, n_keep_old=1, n_keep_new=2):
@@ -156,28 +178,36 @@ def tfile(fname, location):
     return tmp
 
 
-def remote_exists(fname, location):
+def remote_exists(fname, connection):
     "Return True if the files related to fname exist in the remote location"
-    server, path = location.split(':', 1)
-    fnames = ' '.join('"%s/%s"' % (path, x) for x in [cfile(fname), hfile(fname)])
-    print(f'Checking if remote files exist at {server}: {fnames}')
-    return os.system(f"ssh {server} 'ls {fnames}' > /dev/null 2>&1") == 0
+    method, location = connection
+    fnames = [cfile(fname), hfile(fname)]
+    print(f'Checking if remote files exist at {location}: {fnames}')
+    if method == 'sshfs':
+        return all(os.path.exists(f'{location}/{x}') for x in fnames)
+    else:
+        server, path = location.split(':', 1)
+        paths = ' '.join('"%s/%s"' % (path, x) for x in fnames)
+        return os.system(f"ssh {server} 'ls {paths}' > /dev/null 2>&1") == 0
 
 
-def assert_tracking(fname, location):
+def assert_tracking(fname, connection):
     "Assert that fname is correctly being tracked and exit if not"
     print(f'Checking that "{fname}" is correctly being tracked...')
     try:
         for f in [fname, hfile(fname)]:
             assert os.path.exists(f), f"File doesn't exist: {f}"
-        assert remote_exists(fname, location), \
-            f'Missing corresponding files at {location}'
+        assert remote_exists(fname, connection), \
+            f'Missing corresponding files at {connection[1]}'
     except AssertionError as e:
         sys.exit('%s. Maybe run with --init first?' % e)
+    except ValueError as e:
+        sys.exit(f'Invalid connection: {connection}')
     # We could also check the consistency of the remote history by
     # computing the hash of the remote file (after copying it locally
     # and unencrypting) and comparing it to the last entry in the
-    # remote history (ssh $server tail -n 1 $fname.history).
+    # remote history ("tail -n 1 $location/$fname.history" or
+    # "ssh $server tail -n 1 $fname.history").
 
 
 def update_history(fname):
@@ -198,27 +228,43 @@ def get_history_local(fname):
     return [line.split()[0] for line in open(hfile(fname))]
 
 
-def get_history_remote(fname, location):
-    print(f'Getting remote history file ("{hfile(fname)}") ...')
-    path_remote = f'{location}/{fname}'.replace(' ', '\\ ')
-    path_tmp = tfile(fname, location)
-    run(f'scp -q "{hfile(path_remote)}" {hfile(path_tmp)}')
-    return get_history_local(path_tmp)
+def get_history_remote(fname, connection):
+    method, location = connection
+
+    if method == 'sshfs':
+        return get_history_local(f'{location}/{fname}')
+    else:
+        print(f'Getting remote history file ("{hfile(fname)}") ...')
+        path_remote = f'{location}/{fname}'.replace(' ', '\\ ')
+        path_tmp = tfile(fname, location)
+        run(f'scp -q "{hfile(path_remote)}" {hfile(path_tmp)}')
+        return get_history_local(path_tmp)
 
 
-def download(fname, location):
+def download(fname, connection):
     print(f'Downloading "{fname}" ...')
+
+    method, location = connection
     path = f'{location}/{fname}'.replace(' ', '\\ ')
-    run(f'scp -q "{cfile(path)}" "{hfile(path)}" .')
+
+    if method == 'sshfs':
+        run(f'cp "{cfile(path)}" "{hfile(path)}" .')
+    else:
+        run(f'scp -q "{cfile(path)}" "{hfile(path)}" .')
+
     decrypt(fname)
 
 
-def download_with_different_name(fname, location):
+def download_with_different_name(fname, connection):
+    method, location = connection
     name_new = tfile(fname, location)
     print(f'Downloading "{fname}" with name "{name_new}" ...')
     for fn in [cfile, hfile]:
         fname_escaped = fname.replace(' ', '\\ ')
-        run(f'scp -q "{location}/{fn(fname_escaped)}" {fn(name_new)}')
+        if method == 'sshfs':
+            run(f'cp "{location}/{fn(fname_escaped)}" "{fn(name_new)}"')
+        else:
+            run(f'scp -q "{location}/{fn(fname_escaped)}" "{fn(name_new)}"')
     decrypt(name_new)
     print(f'Check the differences in files "{name_new}" "{fname}"')
     print((f'Tip: merge into "{name_new}", rename it to "{fname}", replace '
@@ -231,10 +277,14 @@ def backup(fname):
     run(f'cp -v "{fname}" "{fname}.backup_{t}"')
 
 
-def upload(fname, location):
+def upload(fname, connection):
     print(f'Uploading "{fname}" ...')
     encrypt(fname)
-    run(f'scp -q "{cfile(fname)}" "{hfile(fname)}" "{location}"')
+    method, location = connection
+    if method == 'sshfs':
+        run(f'cp "{cfile(fname)}" "{hfile(fname)}" "{location}"')
+    else:
+        run(f'scp -q "{cfile(fname)}" "{hfile(fname)}" "{location}"')
 
 
 def encrypt(fname):
@@ -258,8 +308,10 @@ def passfile_args():
             '--passphrase-file "%s" \\\n    ' % passfile)
 
 
-def delete_temp_files(fname, location):
+def delete_temp_files(fname, connection):
     print('Deleting temporary files...')
+
+    method, location = connection
 
     path_tmp = tfile(fname, location)
 
@@ -281,9 +333,13 @@ def log(txt):
     print(magenta(txt))
 
 
-def ansi(n):
+def ansi(n, bold=False):
     "Return function that escapes text with ANSI color n"
-    return lambda txt: '\x1b[%dm%s\x1b[0m' % (n, txt)
+    code = str(n) + (';1' if bold else '')  # color code
+    def color(txt):
+        on, off = [f'\x1b[{c}m' for c in [code, '0']]
+        return on + txt.replace(off, off + on) + off
+    return color
 
 black, red, green, yellow, blue, magenta, cyan, white = map(ansi, range(30, 38))
 
