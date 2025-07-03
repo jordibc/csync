@@ -7,9 +7,9 @@ location as a repository (which will only contain an encrypted version
 of the file).
 
 
-# Example
+## 💡 Example
 
-```
+```sh
 $ sshfs remoteserver:sync /data/sync -o reconnect,idmap=user
 $ csync --location /data/sync notes.txt
 Checking that "notes.txt" is correctly being tracked...
@@ -19,7 +19,16 @@ Deleting temporary files...
 ```
 
 
-# What does it try to solve?
+## 📥 Installation
+
+You can run the csync.py file directly, or install the executable csync with:
+
+```sh
+$ pip install -e .
+```
+
+
+## ❓ What does it try to solve?
 
 I want to have a file *synchronized between my different computers*
 (for example a text file with personal information).
@@ -44,7 +53,7 @@ downloads and unencrypts the remote one with a different name so you
 solve the differences.)
 
 
-# How does it work?
+## 🤔 How does it work?
 
 In order to know which version is more recent, and also if there have
 been divergences between files in different computers, it stores a
@@ -80,7 +89,7 @@ first, just in case). And if the histories have diverged, it downloads
 and unencrypts the remote one and tells you to manually merge them.
 
 
-# Remote connection
+## 🛜 Remote connection
 
 `csync` works with or without the remote directory mounted with
 [sshfs](https://github.com/libfuse/sshfs).
@@ -112,7 +121,7 @@ and that operation will be faster, as will all the future operations
 with csync.
 
 
-# Usage
+## 📖 Usage
 
 ```
 usage: csync [-h] [--location LOCATION] [--method {sshfs,scp}] [--list] [--download] [--init] [--delete-backups]
@@ -135,7 +144,7 @@ options:
 ```
 
 
-# Similar projects
+## ☮️ Similar projects
 
 A much more advanced synchronization tool is
 [Syncthing](https://syncthing.net/). It has many advantages over
@@ -145,3 +154,9 @@ The main advantage of csync is that it doesn't require the computers
 to be connected simultaneously for it to synchronize data. It also has
 a simpler setup (if you have an online server that you can use to
 store the encrypted files).
+
+
+## ⚖️ License
+
+This program is licensed under the GPL v3. See the [project
+license](license.md) for further details.

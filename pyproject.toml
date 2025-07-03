@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "csync"
+description = "Sync files via remote server which only has encrypted versions"
+version = "1.0.0"
+authors = [
+  { name="Jordi Burguet-Castell", email="jordi.burguet.castell@gmail.com" },
+]
+readme = "readme.md"
+license = "GPL-3.0-or-later"
+license-files = ["license.md"]
+requires-python = ">=3.7"
+classifiers = [
+  "Programming Language :: Python :: 3",
+]
+dependencies = []
+
+[project.urls]
+"Homepage" = "https://gitlab.com/jordibc/csync"
+
+[project.scripts]
+csync = "csync:main"
