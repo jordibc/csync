@@ -56,7 +56,7 @@ def get_args():
         sys.exit(parser.format_usage().strip())
 
     if args.method == 'sshfs' and not is_sshfs_mounted(args.location):
-        sys.exit(f'Missing sshfs mount. Maybe run:\n'
+        sys.exit(f'Missing sshfs mount. Maybe use --method scp, or run:\n'
                  f'  sshfs <host> {args.location} -o reconnect,idmap=user')
 
     return args
