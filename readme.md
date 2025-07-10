@@ -21,7 +21,7 @@ Deleting temporary files...
 
 ## 📥 Installation
 
-You can run the `csync.py` file directly, or install the executable
+You can run the `src/csync.py` file directly, or install the executable
 `csync` with:
 
 ```sh

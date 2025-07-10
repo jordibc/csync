@@ -38,7 +38,7 @@ def main():
 def get_args():
     parser = ArgumentParser(description=__doc__, formatter_class=fmt)
 
-    script_dir = os.path.dirname(os.path.realpath(__file__))
+    script_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     default_location = script_dir + '/default_mountpoint'
 
     add = parser.add_argument  # shortcut

@@ -23,7 +23,3 @@ dependencies = []
 
 [project.scripts]
 csync = "csync:main"
-
-# TODO: Figure out why this doesn't work when doing
-#   pip install -e .
-# whereas it works in wikiblame, which looks almost identical to csync.
