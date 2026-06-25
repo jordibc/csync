@@ -217,8 +217,12 @@ def update_history(fname):
     history = get_history_local(fname) if os.path.exists(hfile(fname)) else []
     if not history or csum != history[-1]:
         print(f'Updating "{hfile(fname)}" ...')
-        new_entry = f'{csum}  {time.asctime()} at {os.uname()[1]}\n'
-        open(hfile(fname), 'at').write(new_entry)
+        s = os.stat(fname)
+        size, mtime = s.st_size, s.st_mtime  # size in bytes, last modification
+        t = time.strftime('%Y-%m-%d %H:%MZ', time.gmtime(mtime))  # ISO 8601
+        host = os.uname()[1]
+        with open(hfile(fname), 'at') as f:
+            f.write(f'{csum}  {size} B  {t}  {host}\n')
 
 
 def checksum(fname):

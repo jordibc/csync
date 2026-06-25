@@ -67,17 +67,18 @@ the list of hashes will be called `notes.txt.history`, and it will
 look like:
 
 ```
-68846e...78aa6b  Fri Sep  4 13:22:10 2023 at computer1
-39752b...432e33  Sat Sep 19 18:33:57 2023 at computer2
-fb045e...4dea9e  Sun Oct  4 21:18:21 2023 at computer1
-5d34b7...c11a36  Mon Nov  2 11:33:27 2023 at computer3
-d2fa12...dcbf81  Sat Nov  7 00:26:01 2023 at computer3
+68846e...78aa6b  2901397 B  2026-06-25 22:18Z  computer1
+39752b...432e33  2903431 B  2026-06-29 19:44Z  computer2
+fb045e...4dea9e  3194455 B  2026-07-03 12:36Z  computer1
+5d34b7...c11a36  3196332 B  2026-07-06 21:39Z  computer3
+d2fa12...dcbf81  3243595 B  2026-07-24 15:23Z  computer3
 ```
 
 Each line starts with the (first 40 characters of the) SHA-256 hash of
-the file at the time that csync was run. The second part is just a
-timestamp and the name of the computer where it was done, and it is
-only there for visual inspection, but not used in any way by csync.
+the file at the time that csync was run. Then there is the size of the
+file in bytes, the time of last modification, and the name of the
+computer where it was done, all those only there for visual
+inspection, but not used in any way by csync.
 
 When synchronizing, it first updates this local *history file* if
 there are any changes since the last time, then downloads the remote
