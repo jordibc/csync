@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "csync"
 description = "Sync files via remote server which only has encrypted versions"
-version = "1.0.0"
+version = "1.1.0"
 authors = [
   { name="Jordi Burguet-Castell", email="jordi.burguet.castell@gmail.com" },
 ]

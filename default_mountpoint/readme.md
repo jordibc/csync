@@ -1,7 +1,7 @@
 This directory is intended to be used as a mountpoint for sshfs.
 
-You can use instead any other location (with the `--location`
-argument), but this is the default for csync.
+You can use instead any other location (with `location = ...` in the
+config file), but this is the default for csync.
 
 For example, if the remote location is `remote:sync`, from this
 directory's parent directory you can run:

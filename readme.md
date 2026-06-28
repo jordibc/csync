@@ -11,7 +11,7 @@ of the file).
 
 ```sh
 $ sshfs remoteserver:sync /data/sync -o reconnect,idmap=user
-$ csync --location /data/sync notes.txt
+$ csync notes.txt
 Checking that "notes.txt" is correctly being tracked...
 Checking if remote files exist at /data/sync: ['notes.txt.gpg', 'notes.txt.history']
 Same version everywhere, not updating anything.
@@ -48,9 +48,9 @@ my own computers and some simpler tools like [gpg](https://gnupg.org/).
 
 So I wrote this utility. It first encrypts the file you want to
 synchronize, and then uploads it to a remote location. Or downloads
-the remote file and unencrypts it on your local machine. Depends on
+the remote file and decrypts it on your local machine. Depends on
 which one is the last version. (Or if the versions have diverged, it
-downloads and unencrypts the remote one with a different name so you
+downloads and decrypts the remote one with a different name so you
 solve the differences.)
 
 
@@ -86,9 +86,9 @@ history file and compares them. If the full history of changes is
 contained in the local file, then the local one is the more recent and
 it encrypts it and uploads it (plus the updated history file). If the
 remote changes contain the local ones, it downloads the encrypted
-remote file and unencrypts it (making a backup of the local file
-first, just in case). And if the histories have diverged, it downloads
-and unencrypts the remote one and tells you to manually merge them.
+remote file and decrypts it (making a backup of the local file first,
+just in case). And if the histories have diverged, it downloads and
+decrypts the remote one and tells you to manually merge them.
 
 
 ## 🛜 Remote connection
@@ -100,11 +100,16 @@ If not mounted, it will use `ssh` and `scp` to explore and copy files
 around. If mounted, it will access the mounted directory and will be
 much faster.
 
-For example, if the remote location is `remote:sync`, you could
-synchronize `notes.txt` with:
+We can select which method to use in the configuration file, normally
+at `$HOME/.config/csync/csync.cfg`.
 
-```sh
-$ csync --method scp --location remote:sync notes.txt
+For example, if the remote location is `remote:sync`, we could have
+`csync.cfg` look like:
+
+```cfg
+method = scp
+location = remote:sync
+passphrase = ...
 ```
 
 But if we mount it with sshfs in the script's directory
@@ -114,36 +119,53 @@ But if we mount it with sshfs in the script's directory
 $ sshfs remote:sync default_mountpoint -o reconnect,idmap=user
 ```
 
-Then we could just do:
+Then `csync.cfg` would look like:
+
+```cfg
+method = sshfs
+location = /path_to_csync/default_mountpoint
+passphrase = ...
+```
+
+And when we do:
 
 ```sh
 $ csync notes.txt
 ```
 
-and that operation will be faster, as will all the future operations
-with csync.
+that operation will be faster than when using scp, as will all the
+future operations with csync.
+
+
+### gocryptfs
+
+Another possibility is to have the remote directory, mounted with
+nextcloud or sshfs, encrypted with `gocryptfs` and mounted somewhere
+locally (as in `/data/crypt/csync` for example).
+
+In that case, we don't need to use gpg and can specify `gocryptfs` as
+method and `/data/crypt/csync` as location.
 
 
 ## 📖 Usage
 
 ```
-usage: csync [-h] [--location LOCATION] [--method {sshfs,scp}] [--list] [--download] [--init] [--delete-backups]
+usage: csync [-h] [-c CONFIG] [--list] [--download] [--init] [--delete-backups]
              [FILE ...]
 
 Syncs a file that may exist in different machines, with a server that only
 contains an encrypted version of the file.
 
 positional arguments:
-  FILE                  file to sync
+  FILE                 file to sync
 
 options:
-  -h, --help            show this help message and exit
-  --location LOCATION   central sync storage
-  --method {sshfs,scp}  connection method (default: sshfs)
-  --list                list tracked files
-  --download            force download of remote file
-  --init                create initial file sync
-  --delete-backups      delete (most) backups
+  -h, --help           show this help message and exit
+  -c, --config CONFIG  configuration file
+  --list               list tracked files
+  --download           force download of remote file
+  --init               create initial file sync
+  --delete-backups     delete (most) backups
 ```
 
 

@@ -11,40 +11,46 @@ import time
 import hashlib
 import subprocess
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter as fmt
+from configparser import ConfigParser
+
+config = None  # will have the configuration dict read from the config file
 
 
 def main():
-    args = get_args()
+    try:
+        args = get_args()
 
-    connection = (args.method, args.location)
+        load_config(args.config)
 
-    if args.list:
-        list_tracked(connection)
-    elif args.download:
-        for fname in args.files:
-            download(fname, connection)
-    elif args.init:
-        for fname in args.files:
-            init(fname, connection)
-    elif args.delete_backups:
-        for fname in args.files:
-            delete_backups(fname)
-    else:
-        for fname in args.files:
-            sync(fname, connection)
+        if args.list:
+            list_tracked()
+        elif args.download:
+            for fname in args.files:
+                download(fname)
+        elif args.init:
+            for fname in args.files:
+                init(fname)
+        elif args.delete_backups:
+            for fname in args.files:
+                delete_backups(fname)
+        else:
+            for fname in args.files:
+                sync(fname)
 
+    except (AssertionError, OSError, PermissionError) as e:
+        sys.exit(e)
 
 
 def get_args():
     parser = ArgumentParser(description=__doc__, formatter_class=fmt)
 
-    script_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    default_location = script_dir + '/default_mountpoint'
+    conf_home = os.environ.get('XDG_CONFIG_HOME',
+                               os.environ['HOME'] + '/.config')
+    default_conf = conf_home + '/csync/csync.cfg'
 
     add = parser.add_argument  # shortcut
     add('files', metavar='FILE', nargs='*', help='file to sync')
-    add('--location', default=default_location, help='central sync storage')
-    add('--method', choices=['sshfs', 'scp'], default='sshfs', help='connection method')
+    add('-c', '--config', default=default_conf, help='configuration file')
     add('--list', action='store_true', help='list tracked files')
     add('--download', action='store_true', help='force download of remote file')
     add('--init', action='store_true', help='create initial file sync')
@@ -52,14 +58,50 @@ def get_args():
 
     args = parser.parse_args()
 
-    if not args.files and not args.list:
-        sys.exit(parser.format_usage().strip())
-
-    if args.method == 'sshfs' and not is_sshfs_mounted(args.location):
-        sys.exit(f'Missing sshfs mount. Maybe use --method scp, or run:\n'
-                 f'  sshfs <host> {args.location} -o reconnect,idmap=user')
+    assert args.files or args.list, parser.format_usage().strip()
 
     return args
+
+
+def load_config(fname):
+    "Load the configuration from fname into global variable config"
+    global config
+
+    # Create stub if needed.
+    conf_dir = os.path.dirname(fname)
+    if not os.path.exists(conf_dir):
+        os.makedirs(conf_dir)
+    if not os.path.exists(fname):
+        with open(fname, 'wt') as f:
+            f.write("""\
+# csync configuration file - see https://codeberg.org/jordibc/csync
+
+# connection method (sshfs, scp, gocryptfs)
+method = gocryptfs
+
+# central csync storage
+location = /data/crypt/csync
+
+# the passphrase used to encrypt with gpg (for sshfs and scp)
+passphrase = ...
+""")
+        os.chmod(fname, 0o600)  # only readable by user
+
+    valid_keys = ['method', 'location', 'passphrase']
+
+    cp = ConfigParser()
+    cp.read_string('[top]\n' + open(fname).read())
+    config = cp['top']
+
+    for k in config.keys():
+        assert k in valid_keys, f'Unknown property in config file {fname}: {k}'
+
+    config.setdefault('location', '/data/crypt/csync')
+    config.setdefault('method', 'gocryptfs')
+
+    assert config['method'] != 'sshfs' or is_sshfs_mounted(config['location']), \
+        (f'Missing sshfs mount. Maybe use another method, or run first:\n'
+         f'  sshfs <host> {config["location"]} -o reconnect,idmap=user')
 
 
 def is_sshfs_mounted(location):
@@ -69,7 +111,7 @@ def is_sshfs_mounted(location):
     return False
 
 
-def list_tracked(connection):
+def list_tracked():
     "Print local and remotely tracked files"
     def get_output(cmd): return subprocess.getoutput(cmd).splitlines()
     def get_fname(x): return x.rsplit('/', 1)[-1][:-len('.history')]
@@ -78,19 +120,19 @@ def list_tracked(connection):
     for path in get_output('ls *.history 2> /dev/null'):
         print(get_fname(path))
 
-    method, location = connection
+    method, location = config['method'], config['location']
 
     log(f'Getting remotely tracked files in {location} ...')
-    if method == 'sshfs':
+    if method in ['sshfs', 'gocryptfs']:
         for path in get_output(f'ls {location}/*.history 2> /dev/null'):
             print(get_fname(path))
-    else:
+    else:  # scp
         server, path = location.split(':', 1)
         for path in get_output(f'ssh -q {server} ls {path}/*.history 2> /dev/null'):
             print(get_fname(path))
 
 
-def init(fname, connection):
+def init(fname):
     "Create the .history file and do the first synchronization"
     if not os.path.exists(fname):
         sys.exit("File doesn't exist: %s" % fname)
@@ -100,14 +142,14 @@ def init(fname, connection):
         sys.exit(f'"{hfile(fname)}" already exists!')
     update_history(fname)
 
-    if remote_exists(fname, connection):
-        sync(fname, connection)
+    if remote_exists(fname):
+        sync(fname)
     else:
         log("Newly tracked file doesn't exist remotely. Uploading.")
-        upload(fname, connection)
+        upload(fname)
 
 
-def sync(fname, connection):
+def sync(fname):
     "Synchronize file fname"
     if not os.path.exists(fname):
         sys.exit(f"File doesn't exist: {fname}")
@@ -117,28 +159,28 @@ def sync(fname, connection):
         if not answer.lower().startswith('y'):
             sys.exit('Cancelling.')
 
-    assert_tracking(fname, connection)
+    assert_tracking(fname)
 
     update_history(fname)
 
     history_local = get_history_local(fname)
-    history_remote = get_history_remote(fname, connection) or ['nan']
+    history_remote = get_history_remote(fname) or ['nan']
 
     if history_local == history_remote:
         log('Same version everywhere, not updating anything.')
-        delete_temp_files(fname, connection)
+        delete_temp_files(fname)
     elif includes(history_local, history_remote):
         log('Local version is newer. Uploading.')
-        upload(fname, connection)
-        delete_temp_files(fname, connection)
+        upload(fname)
+        delete_temp_files(fname)
     elif includes(history_remote, history_local):
         log('Remote version is newer. Downloading.')
         backup(fname)
-        download(fname, connection)
-        delete_temp_files(fname, connection)
+        download(fname)
+        delete_temp_files(fname)
     else:
         log('Versions have diverged. You will need to check manually.')
-        download_with_different_name(fname, connection)
+        download_with_different_name(fname)
 
 
 def delete_backups(fname, n_keep_old=1, n_keep_new=2):
@@ -179,36 +221,32 @@ def tfile(fname, location):
     return tmp
 
 
-def remote_exists(fname, connection):
+def remote_exists(fname):
     "Return True if the files related to fname exist in the remote location"
-    method, location = connection
-    fnames = [cfile(fname), hfile(fname)]
+    method, location = config['method'], config['location']
+    fnames = [cfile(fname) if method != 'gocryptfs' else fname, hfile(fname)]
     print(f'Checking if remote files exist at {location}: {fnames}')
-    if method == 'sshfs':
+    if method in ['sshfs', 'gocryptfs']:
         return all(os.path.exists(f'{location}/{x}') for x in fnames)
-    else:
+    else:  # scp
         server, path = location.split(':', 1)
         paths = ' '.join('"%s/%s"' % (path, x) for x in fnames)
         return os.system(f"ssh {server} 'ls {paths}' > /dev/null 2>&1") == 0
 
 
-def assert_tracking(fname, connection):
+def assert_tracking(fname):
     "Assert that fname is correctly being tracked and exit if not"
     print(f'Checking that "{fname}" is correctly being tracked...')
     try:
         for f in [fname, hfile(fname)]:
             assert os.path.exists(f), f"File doesn't exist: {f}"
-        assert remote_exists(fname, connection), \
-            f'Missing corresponding files at {connection[1]}'
+        assert remote_exists(fname), \
+            f'Missing corresponding files at {config["location"]}'
     except AssertionError as e:
-        sys.exit('%s. Maybe run with --init first?' % e)
-    except ValueError as e:
-        sys.exit(f'Invalid connection: {connection}')
-    # We could also check the consistency of the remote history by
-    # computing the hash of the remote file (after copying it locally
-    # and unencrypting) and comparing it to the last entry in the
-    # remote history ("tail -n 1 $location/$fname.history" or
-    # "ssh $server tail -n 1 $fname.history").
+        raise AssertionError(f'{e}. Maybe run with --init first?')
+    except ValueError as e:  # from remote_exists()
+        method, location = config["method"], config["location"]
+        raise AssertionError(f'Invalid connection: {method} {location}')
 
 
 def update_history(fname):
@@ -233,12 +271,12 @@ def get_history_local(fname):
     return [line.split()[0] for line in open(hfile(fname))]
 
 
-def get_history_remote(fname, connection):
-    method, location = connection
+def get_history_remote(fname):
+    method, location = config['method'], config['location']
 
-    if method == 'sshfs':
+    if method in ['sshfs', 'gocryptfs']:
         return get_history_local(f'{location}/{fname}')
-    else:
+    else:  # scp
         print(f'Getting remote history file ("{hfile(fname)}") ...')
         path_remote = f'{location}/{fname}'.replace(' ', '\\ ')
         path_tmp = tfile(fname, location)
@@ -246,31 +284,37 @@ def get_history_remote(fname, connection):
         return get_history_local(path_tmp)
 
 
-def download(fname, connection):
+def download(fname):
     print(f'Downloading "{fname}" ...')
 
-    method, location = connection
+    method, location = config['method'], config['location']
     path = f'{location}/{fname}'.replace(' ', '\\ ')
 
-    if method == 'sshfs':
+    if method == 'gocryptfs':
+        run(f'cp "{path}" "{hfile(path)}" .')
+    elif method == 'sshfs':
         run(f'cp "{cfile(path)}" "{hfile(path)}" .')
-    else:
+    else:  # scp
         run(f'scp -q "{cfile(path)}" "{hfile(path)}" .')
 
-    decrypt(fname)
+    if method != 'gocryptfs':
+        decrypt(fname)
 
 
-def download_with_different_name(fname, connection):
-    method, location = connection
+def download_with_different_name(fname):
+    method, location = config['method'], config['location']
     name_new = tfile(fname, location)
     print(f'Downloading "{fname}" with name "{name_new}" ...')
-    for fn in [cfile, hfile]:
+    for fn in [cfile if method != 'gocryptfs' else lambda x: x, hfile]:
         fname_escaped = fname.replace(' ', '\\ ')
-        if method == 'sshfs':
+        if method in ['sshfs', 'gocryptfs']:
             run(f'cp "{location}/{fn(fname_escaped)}" "{fn(name_new)}"')
-        else:
+        else:  # scp
             run(f'scp -q "{location}/{fn(fname_escaped)}" "{fn(name_new)}"')
-    decrypt(name_new)
+
+    if method != 'gocryptfs':
+        decrypt(name_new)
+
     print(f'Check the differences in files "{name_new}" "{fname}"')
     print((f'Tip: merge into "{name_new}", rename it to "{fname}", replace '
            f'"{hfile(fname)}" by "{hfile(name_new)}" and run csync again.'))
@@ -282,41 +326,42 @@ def backup(fname):
     run(f'cp -v "{fname}" "{fname}.backup_{t}"')
 
 
-def upload(fname, connection):
+def upload(fname):
     print(f'Uploading "{fname}" ...')
-    encrypt(fname)
-    method, location = connection
-    if method == 'sshfs':
+    method, location = config['method'], config['location']
+
+    if method != 'gocryptfs':
+        encrypt(fname)
+
+    if method == 'gocryptfs':
+        run(f'cp "{fname}" "{hfile(fname)}" "{location}"')
+    elif method == 'sshfs':
         run(f'cp "{cfile(fname)}" "{hfile(fname)}" "{location}"')
-    else:
+    else:  # scp
         run(f'scp -q "{cfile(fname)}" "{hfile(fname)}" "{location}"')
 
 
 def encrypt(fname):
-    xtra_args = passfile_args()
+    xtra_args = passphrase_args()
     run('gpg %s-o - -c "%s" > "%s"' % (xtra_args, fname, cfile(fname)))
 
 
 def decrypt(fname):
-    xtra_args = passfile_args()
+    xtra_args = passphrase_args()
     run('gpg %s-o - -d "%s" > "%s"' % (xtra_args, cfile(fname), fname))
 
 
-def passfile_args():
-    "Return arguments for gpg to use the password stored in the config file"
-    config_dir = os.environ.get('XDG_CONFIG_HOME',
-                                os.environ['HOME'] + '/.config') + '/csync'
-    passfile = f'{config_dir}/pass'
-
-    return ('' if not os.path.exists(passfile) else
+def passphrase_args():
+    "Return arguments for gpg to use a passphrase"
+    return ('' if not config.get('passphrase') else
             '--batch --pinentry-mode loopback '
-            '--passphrase-file "%s" \\\n    ' % passfile)
+            '--passphrase "%s" \\\n    ' % config['passphrase'])
 
 
-def delete_temp_files(fname, connection):
+def delete_temp_files(fname):
     print('Deleting temporary files...')
 
-    method, location = connection
+    method, location = config['method'], config['location']
 
     path_tmp = tfile(fname, location)
 
