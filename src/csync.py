@@ -375,8 +375,7 @@ def run(cmd):
 
     ret = os.system(cmd)
 
-    if ret != 0:
-        sys.exit(f'Command failed (exit code: {ret})')
+    assert ret == 0, f'Command failed (exit code: {ret})'
 
 
 def log(txt):
