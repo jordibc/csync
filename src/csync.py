@@ -105,10 +105,8 @@ passphrase = ...
 
 
 def is_sshfs_mounted(location):
-    for line in subprocess.getoutput('mount -l -t fuse.sshfs').splitlines():
-        if line.split()[2] == location:
-            return True
-    return False
+    mounts = subprocess.getoutput('mount -l -t fuse.sshfs').splitlines()
+    return any(line.split()[2] == location for line in mounts)
 
 
 def list_tracked():
@@ -134,12 +132,10 @@ def list_tracked():
 
 def init(fname):
     "Create the .history file and do the first synchronization"
-    if not os.path.exists(fname):
-        sys.exit("File doesn't exist: %s" % fname)
+    assert os.path.exists(fname), f"File doesn't exist: {fname}"
 
     log(f'Creating "{hfile(fname)}" to track synchronizations...')
-    if os.path.exists(hfile(fname)):
-        sys.exit(f'"{hfile(fname)}" already exists!')
+    assert not os.path.exists(hfile(fname)), f'Already exists: {hfile(fname)}'
     update_history(fname)
 
     if remote_exists(fname):
@@ -151,13 +147,11 @@ def init(fname):
 
 def sync(fname):
     "Synchronize file fname"
-    if not os.path.exists(fname):
-        sys.exit(f"File doesn't exist: {fname}")
+    assert os.path.exists(fname), f"File doesn't exist: {fname}"
 
     if os.stat(fname).st_size == 0:
         answer = input('Local version is empty! Sync anyway? [y/n] ')
-        if not answer.lower().startswith('y'):
-            sys.exit('Cancelling.')
+        assert answer.lower().startswith('y'), 'Cancelling.'
 
     assert_tracking(fname)
 
